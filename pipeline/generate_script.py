@@ -1,10 +1,11 @@
 """
 Gemini API로 여행업 비즈니스 일본어 대화 스크립트 생성
 """
+import os
+import re
 import json
 import random
 import sys
-import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from google import genai
@@ -36,6 +37,32 @@ def _pick_knowledge(knowledge: dict, situation: dict) -> dict:
     return {"grammar": selected_grammar, "kanji": selected_kanji}
 
 
+def _clean_text(text: str) -> str:
+    """마크다운 기호 제거 (**, *, #, __, ` 등)"""
+    if not isinstance(text, str):
+        return text
+    # 1. 굵게, 기울임꼴 제거: **text**, *text*, __text__, _text_
+    text = re.sub(r'(\*\*|\*|__|_) (.*?) \1', r'\2', text, flags=re.VERBOSE)
+    # 위 정규식이 공백 등으로 인해 실패할 경우를 대비한 단순 제거
+    text = text.replace("**", "").replace("__", "").replace("*", "").replace("_", "")
+    # 2. 헤더 제거: # Title
+    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
+    # 3. 백틱 제거: `code`
+    text = text.replace("`", "")
+    return text.strip()
+
+
+def _clean_script(obj):
+    """스크립트 딕셔너리 내의 모든 문자열에서 마크다운 제거 (재귀)"""
+    if isinstance(obj, dict):
+        return {k: _clean_script(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_clean_script(i) for i in obj]
+    elif isinstance(obj, str):
+        return _clean_text(obj)
+    return obj
+
+
 def generate_script(situation: dict, knowledge: dict) -> dict:
     """
     Gemini API로 대화 스크립트 생성
@@ -50,7 +77,7 @@ def generate_script(situation: dict, knowledge: dict) -> dict:
     difficulty = situation.get("difficulty", "N2")
 
     if ep_type == "B2B":
-        speakers = "旅行会社の担当者（田中）と ホ테ルの営業担当（山田）"
+        speakers = "旅行会社の担当者（田中）と ホテルの営業担当（山田）"
         context = "도매사(ホテル)와 여행사 간의 비즈니스 대화"
     else:
         speakers = "旅行会社のスタッフ（佐藤）と お客様（김민준）"
@@ -78,6 +105,8 @@ def generate_script(situation: dict, knowledge: dict) -> dict:
 3. 문법 포인트가 실제 대화에서 자연스럽게 사용될 것
 4. 여행업 실무 용어 포함
 5. 한국어 번역 포함
+6. 대화의 배경이 되는 국가는 한국과 일본으로 한정
+7. 대사 텍스트에 마크다운 문법(**bold**, *italic*, # 등)을 절대 사용하지 마세요. 순수 텍스트만 출력하세요.
 
 ## 출력 형식 (JSON만 반환)
 {{
@@ -129,6 +158,8 @@ def generate_script(situation: dict, knowledge: dict) -> dict:
             if text_content.startswith("json"):
                 text_content = text_content[4:]
         script = json.loads(text_content)
+        # 마크다운 전처리 추가
+        script = _clean_script(script)
         return script
     except Exception as e:
         print(f"  [오류] 스크립트 생성 실패: {e}")
