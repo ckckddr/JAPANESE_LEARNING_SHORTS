@@ -6,6 +6,7 @@ import sys
 import json
 import base64
 import requests
+import re
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from config import GOOGLE_TTS_API_KEY, TTS_VOICE_MALE, TTS_VOICE_FEMALE, TTS_VOICE_NARRATOR
@@ -39,6 +40,16 @@ def _get_voice_for_speaker(speaker: str) -> str:
     return VOICE_MAP.get(gender, TTS_VOICE_MALE)
 
 
+def _clean_text(text: str) -> str:
+    """TTS 전송 전 마크다운 기호 최종 제거"""
+    if not isinstance(text, str):
+        return text
+    text = text.replace("**", "").replace("__", "").replace("*", "").replace("_", "")
+    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
+    text = text.replace("`", "")
+    return text.strip()
+
+
 def synthesize_line(text: str, speaker: str, output_path: str,
                     speaking_rate: float = 1.0) -> str:
     """
@@ -52,6 +63,7 @@ def synthesize_line(text: str, speaker: str, output_path: str,
         output_path
     """
     voice_name = _get_voice_for_speaker(speaker)
+    text = _clean_text(text)
 
     payload = {
         "input": {"text": text},
