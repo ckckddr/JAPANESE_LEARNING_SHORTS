@@ -1,0 +1,29 @@
+# Environment
+.env
+youtube_client_secret.json
+client_secrets.json
+
+# Data and Logs
+data/
+logs/
+.system_generated/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv
+venv/
+ENV/
+
+# Media and Generated Assets
+*.mp3
+*.mp4
+*.jpg
+*.png
+*.pdf
+
+# IDE
+.vscode/
+.idea/
